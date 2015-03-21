@@ -26,7 +26,7 @@ our $serialdev;
 sub send_key($;$);
 sub check_screen($;$);
 sub type_string($;$);
-sub type_password;
+sub type_password(;$);
 
 sub init() {
     $serialdev = get_var('SERIALDEV', "ttyS0");
@@ -291,23 +291,43 @@ sub send_key($;$) {
 
 =head2 type_string
 
-type_string($string, [$max_interval])
+type_string($string, { max_interval => <num>, secret => 1 } )
 
 send a string of characters, mapping them to appropriate key names as necessary
 
+you can pass an optional HASHREF with following keys:
+
 max_interval (1-250) determines the typing speed, the lower the
 max_interval the slower the typing.
+
+secret (bool) suppresses logging of the actual string typed.
 =cut
 
 sub type_string($;$) {
-    my $string      = shift;
-    my $max_interval = shift || 250;
-    bmwqemu::fctlog( 'type_string', ["string", "'$string'"], ["max_interval", "'$max_interval'"] );
+    my ($string, $args) = @_;
+    $args //= {};
+    if (!ref($args)) { # backward compat
+        $args = { max_interval => $args };
+    }
+    my $log = $args->{secret} ? 'SECRET STRING' : $string;
+    my $max_interval = $args->{max_interval} // 250;
+    bmwqemu::fctlog( 'type_string', ["string", "'$log'"], ["max_interval", "'$max_interval'"] );
     $bmwqemu::backend->type_string($string, $max_interval);
 }
 
-sub type_password() {
-    type_string $password;
+=head2 type_password
+
+type_password([$password])
+
+A convience wrappar around type_string, which doesn't log the string and uses $testapi::password
+if no string is given
+
+=cut
+
+sub type_password(;$) {
+    my ($string) = @_;
+    $string //= $password;
+    type_string $string, { secret => 1 };
 }
 
 ## keyboard end
